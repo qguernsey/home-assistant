@@ -144,6 +144,8 @@ class HTDLyncZone(MediaPlayerDevice):
         self._name = zone_name
         self._state = None
         self._source = None
+        self._volume = None
+        self._mute = None
 
     def update(self):
         """Retrieve latest state."""
@@ -152,6 +154,7 @@ class HTDLyncZone(MediaPlayerDevice):
         if not state:
             return
         self._state = STATE_ON if state['power'] else STATE_OFF
+        self._mute = STATE_ON if state['mute'] else STATE_OFF
         idx = state['input']
         if idx in self._source_id_name:
             self._source = self._source_id_name[idx]
@@ -213,3 +216,23 @@ class HTDLyncZone(MediaPlayerDevice):
         """Turn the media player off."""
         _LOGGER.debug("Turning zone %d off", self._zone_id)
         self._lync.set_zone_power(self._zone_id, False)
+
+    @property
+    def volume_level(self):
+        """Volume level of the media player (0..1)."""
+        if self._volume is None:
+            return None
+        return self._volume / 60.0
+
+    @property
+    def is_volume_muted(self):
+        """Boolean if volume is currently muted."""
+        return self._mute
+
+    def mute_volume(self, mute):
+        """Mute (true) or unmute (false) media player."""
+        self._lync.set_mute(self._zone_id, mute)
+
+    def set_volume_level(self, volume):
+        """Set volume level, range 0..1."""
+        self._lync.set_volume(self._zone_id, int(volume * 60))
