@@ -26,7 +26,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SUPPORT_HTDLYNC = SUPPORT_TURN_ON | SUPPORT_TURN_OFF | \
                   SUPPORT_VOLUME_MUTE | SUPPORT_VOLUME_SET | \
-                  SUPPORT_SELECT_SOURCE
+                  SUPPORT_SELECT_SOURCE | SUPPORT_VOLUME_STEP
 
 ZONE_SCHEMA = vol.Schema({
     vol.Required(CONF_NAME): cv.string,
@@ -145,16 +145,17 @@ class HTDLyncZone(MediaPlayerDevice):
         self._state = None
         self._source = None
         self._volume = None
-        self._mute = None
+        self._mute = False
 
     def update(self):
         """Retrieve latest state."""
         state = self._lync.get_zone_status(self._zone_id)
-        print(state)
+        # print(state)
         if not state:
             return
         self._state = STATE_ON if state['power'] else STATE_OFF
-        self._mute = STATE_ON if state['mute'] else STATE_OFF
+        self._mute = state['mute']
+        self._volume = int(state['volume-panel'])/60
         idx = state['input']
         if idx in self._source_id_name:
             self._source = self._source_id_name[idx]
@@ -231,8 +232,20 @@ class HTDLyncZone(MediaPlayerDevice):
 
     def mute_volume(self, mute):
         """Mute (true) or unmute (false) media player."""
-        self._lync.set_mute(self._zone_id, mute)
+        self._lync.set_zone_mute(self._zone_id, mute)
 
     def set_volume_level(self, volume):
         """Set volume level, range 0..1."""
-        self._lync.set_volume(self._zone_id, int(volume * 60))
+        self._lync.set_zone_volume(self._zone_id, int(volume * 60))
+
+    def volume_up(self):
+        """Volume up the media player."""
+        if self._volume is None:
+            return
+        self._lync.set_zone_volume(self._zone_id, min(self._volume + 5, 60))
+
+    def volume_down(self):
+        """Volume down media player."""
+        if self._volume is None:
+            return
+        self._lync.set_zone_volume(self._zone_id, max(self._volume - 5, 0))
